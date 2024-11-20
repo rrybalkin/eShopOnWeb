@@ -1,0 +1,40 @@
+﻿RESOURCE_GROUP=eShopWebAppResources
+REGISTRY_NAME=eshopwebapp2011
+
+# create new resource group
+az group create --location westus --resource-group $RESOURCE_GROUP
+
+# create new docker image registry
+az acr create --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP --sku standard --admin-enabled true
+
+# create new web-app docker image and push to registry
+az acr build --file src/Web/Dockerfile --registry $REGISTRY_NAME --image web-app .
+
+# create new public-api docker image and push to registry
+az acr build --file src/PublicApi/Dockerfile --registry $REGISTRY_NAME --image public-api .
+
+
+
+App Environment Variables:
+[
+  {
+    "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
+    "value": "~3",
+    "slotSetting": false
+  },
+  {
+    "name": "ASPNETCORE_ENVIRONMENT",
+    "value": "Docker",
+    "slotSetting": false
+  },
+  {
+    "name": "ASPNETCORE_URLS",
+    "value": "http://+:80",
+    "slotSetting": false
+  },
+  {
+    "name": "UseOnlyInMemoryDatabase",
+    "value": "True",
+    "slotSetting": false
+  }
+]
