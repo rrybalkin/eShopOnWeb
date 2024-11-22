@@ -24,7 +24,7 @@
       "applicationUrl": "https://localhost:5099;http://localhost:5098",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ConnectionStrings:APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=9e83fa09-f9f2-4e30-86f7-d9cfa548f1da;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c30802e8-8507-4bd6-8edd-692b848bad66"
+        "ConnectionStrings:APPLICATIONINSIGHTS_CONNECTION_STRING": "TBD"
       }
     },
     "WSL": {
