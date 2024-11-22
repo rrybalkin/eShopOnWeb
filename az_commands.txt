@@ -18,10 +18,21 @@ az acr build --file src/PublicApi/Dockerfile --registry $REGISTRY_NAME --image p
 App Environment Variables:
 [
   {
-    "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
-    "value": "~3",
+    "name": "ASPNETCORE_ENVIRONMENT", <-- MUST HAVE WHEN DEPLOY FROM Visual Studio!!!
+    "value": "Development"
+  },
+  // for WEB app to point to PublicAPI instance
+   {
+    "name": "baseUrls__apiBase",
+    "value": "https://cloudxeshoppublicapi.azurewebsites.net/api/",
+  }
+  // for App Insights!
+  {
+    "name": "ConnectionStrings__APPLICATIONINSIGHTS_CONNECTION_STRING",
+    "value": "TBD",
     "slotSetting": false
   },
+  // for Docker!
   {
     "name": "ASPNETCORE_ENVIRONMENT",
     "value": "Docker",
