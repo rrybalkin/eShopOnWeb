@@ -49,3 +49,16 @@ App Environment Variables:
     "slotSetting": false
   }
 ]
+
+Key Vault commands:
+az keyvault create --name "eshopwebappkeyvault" --resource-group "cloudxdatabases"
+az role assignment create --role "Key Vault Secrets Officer" --assignee "Roman_Rybalkin@epam.com" --scope "/subscriptions/00c11214-6ab3-4ae6-9433-cbf4f13b24ad/resourceGroups/cloudxdatabases/providers/Microsoft.KeyVault/vaults/eshopwebappkeyvault"
+
+az keyvault secret set --vault-name "eshopwebappkeyvault" --name "SqlServerConnectionString" --value "Server=tcp:eshopwebapp.database.windows.net,1433;Persist Security Info=False;User ID=romanadmin;Password=Password100!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Initial Catalog=eshopwebapp;"
+
+# Assign reading Vault roles to both apps
+az role assignment create --role "Key Vault Secrets User" --assignee "9701b965-f765-4d42-a7d1-bb6b97796832" --scope "/subscriptions/00c11214-6ab3-4ae6-9433-cbf4f13b24ad/resourceGroups/cloudxdatabases/providers/Microsoft.KeyVault/vaults/eshopwebappkeyvault"
+az role assignment create --role "Key Vault Secrets User" --assignee "89aedeec-c592-48fe-a38a-8a011af58d31" --scope "/subscriptions/00c11214-6ab3-4ae6-9433-cbf4f13b24ad/resourceGroups/cloudxdatabases/providers/Microsoft.KeyVault/vaults/eshopwebappkeyvault"
+
+# Assign reading Vault role to azure function
+az role assignment create --role "Key Vault Secrets User" --assignee "f22d7e74-7cc5-481c-8f05-230d6e2e88cc" --scope "/subscriptions/00c11214-6ab3-4ae6-9433-cbf4f13b24ad/resourceGroups/cloudxdatabases/providers/Microsoft.KeyVault/vaults/eshopwebappkeyvault"

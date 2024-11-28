@@ -4,8 +4,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
-public class OrderReservationService
+public class OrderReservationService : IOrderReservationService
 {
     // of course this could be done in better way via environment variables
     private readonly string orderServiceUrl = "https://cloudxeshopwebappv2.azurewebsites.net/api/OrderItemsReserver?code=zF7_eOqfqGOW0i5VY5d-j-GyviKE4r4s8Jlols_dx4WXAzFuMFzbxQ%3D%3D";
@@ -16,7 +17,7 @@ public class OrderReservationService
         _httpClient = new HttpClient();
     }
 
-    public async Task reserveOrder(Order order)
+    public async Task ReserveOrder(Order order)
     {
         try
         {

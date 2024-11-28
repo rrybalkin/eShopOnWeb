@@ -18,7 +18,7 @@ public class OrderService : IOrderService
     private readonly IUriComposer _uriComposer;
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
-    private readonly OrderReservationService _orderReservationService;
+    private readonly IOrderReservationService _orderReservationService;
 
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
@@ -29,8 +29,7 @@ public class OrderService : IOrderService
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
-        HttpClient httpClient = new HttpClient();
-        _orderReservationService = new OrderReservationService();
+        _orderReservationService = new OrderReservationAsyncService();
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -55,7 +54,7 @@ public class OrderService : IOrderService
         var order = new Order(basket.BuyerId, shippingAddress, items);
 
         await _orderRepository.AddAsync(order);
-        // disable because function does not exist anymore
-        // await _orderReservationService.reserveOrder(order);
+
+        await _orderReservationService.ReserveOrder(order);
     }
 }

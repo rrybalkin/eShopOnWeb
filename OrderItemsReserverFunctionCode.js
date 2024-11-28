@@ -1,6 +1,7 @@
-﻿###
-# This also required running `npm install @azure/storage-blob` inside the functions app after creating package.json file
-###
+﻿/**
+** This also required running `npm install @azure/storage-blob` inside the functions app after creating package.json file
+**/
+
 const { BlobServiceClient } = require('@azure/storage-blob');
 
 const AZURE_STORAGE_CONNECTION_STRING = process.env["AzureWebJobsStorage"];
