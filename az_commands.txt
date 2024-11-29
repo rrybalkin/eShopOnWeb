@@ -10,10 +10,11 @@ az acr credential show --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP
 
 # create new web-app docker image and push to registry
 az acr build --file src/Web/Dockerfile --registry $REGISTRY_NAME --image eshop-web-app .
+docker build --file src/Web/Dockerfile --platform linux/amd64 -t $REGISTRY_NAME.azurecr.io/eshop-web-app:latest .
 
 # create new public-api docker image and push to registry
 az acr build --file src/PublicApi/Dockerfile --registry $REGISTRY_NAME --image eshop-public-api .
-
+docker build --file src/PublicApi/Dockerfile --platform linux/amd64 -t $REGISTRY_NAME.azurecr.io/eshop-public-api:latest .
 
 
 App Environment Variables:

@@ -29,7 +29,7 @@ public class OrderService : IOrderService
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
-        _orderReservationService = new OrderReservationAsyncService();
+        // _orderReservationService = new OrderReservationAsyncService();
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
