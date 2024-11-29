@@ -1,17 +1,18 @@
-﻿RESOURCE_GROUP=eShopWebAppResources
-REGISTRY_NAME=eshopwebapp2011
+﻿RESOURCE_GROUP=cloudxcontainersdemo
+REGISTRY_NAME=eshopwebapp29112024
 
 # create new resource group
 az group create --location westus --resource-group $RESOURCE_GROUP
 
 # create new docker image registry
 az acr create --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP --sku standard --admin-enabled true
+az acr credential show --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP
 
 # create new web-app docker image and push to registry
-az acr build --file src/Web/Dockerfile --registry $REGISTRY_NAME --image web-app .
+az acr build --file src/Web/Dockerfile --registry $REGISTRY_NAME --image eshop-web-app .
 
 # create new public-api docker image and push to registry
-az acr build --file src/PublicApi/Dockerfile --registry $REGISTRY_NAME --image public-api .
+az acr build --file src/PublicApi/Dockerfile --registry $REGISTRY_NAME --image eshop-public-api .
 
 
 

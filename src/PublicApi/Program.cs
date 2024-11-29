@@ -125,7 +125,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Logging.AddApplicationInsights(
         configureTelemetryConfiguration: (config) =>
-            config.ConnectionString = builder.Configuration.GetConnectionString("APPLICATIONINSIGHTS_CONNECTION_STRING"),
+            config.ConnectionString = builder.Configuration.GetConnectionString("APPLICATIONINSIGHTS_CONNECTION_STRING") ?? "NOT SET",
             configureApplicationInsightsLoggerOptions: (options) => { }
     );
 builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("", LogLevel.Trace);
