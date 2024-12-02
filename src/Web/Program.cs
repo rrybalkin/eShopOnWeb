@@ -113,6 +113,7 @@ builder.Services.AddBlazorServices();
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+
 var app = builder.Build();
 
 app.Logger.LogInformation("App created...");
