@@ -24,6 +24,7 @@ using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 using Microsoft.Extensions.Logging.ApplicationInsights;
 using System.Configuration;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -134,10 +135,9 @@ builder.Logging.AddApplicationInsights(
 builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("", LogLevel.Trace);
 
 var app = builder.Build();
-
 app.Logger.LogInformation("PublicApi App created...");
 
-app.Logger.LogInformation("CorsPolicy configured with allowedOrigins: " + allowedOrigins);
+app.Logger.LogInformation("CorsPolicy configured with allowedOrigins: " + string.Join(" ", allowedOrigins));
 
 app.Logger.LogInformation("Seeding Database...");
 
