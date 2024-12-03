@@ -72,21 +72,14 @@ builder.Services.AddAuthentication(config =>
 });
 
 const string CORS_POLICY = "CorsPolicy";
-var allowedOrigins = builder.Configuration.GetSection("CORS:AllowedOrigins").Get<string[]>();
+var allowedOrigins = builder.Configuration.GetSection("CORS:AllowedOrigins").Get<string[]>()
+    ?? new string[] { baseUrlConfig!.WebBase.Replace("host.docker.internal", "localhost").TrimEnd('/') };
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: CORS_POLICY,
         corsPolicyBuilder =>
         {
-            if (allowedOrigins.IsNullOrEmpty())
-            {
-                corsPolicyBuilder.WithOrigins(baseUrlConfig!.WebBase.Replace("host.docker.internal", "localhost").TrimEnd('/'));
-            }
-            else
-            {
-                corsPolicyBuilder.WithOrigins(allowedOrigins);
-            }
-            
+            corsPolicyBuilder.WithOrigins(allowedOrigins);
             corsPolicyBuilder.AllowAnyMethod();
             corsPolicyBuilder.AllowAnyHeader();
         });
@@ -143,6 +136,8 @@ builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("", LogLevel.Trace)
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
+
+app.Logger.LogInformation("CorsPolicy configured with allowedOrigins: " + allowedOrigins);
 
 app.Logger.LogInformation("Seeding Database...");
 
