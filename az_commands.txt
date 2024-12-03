@@ -1,5 +1,5 @@
-﻿RESOURCE_GROUP=cloudxcontainersdemo
-REGISTRY_NAME=eshopwebapp29112024
+﻿RESOURCE_GROUP=cloudxfinalassignment
+REGISTRY_NAME=cloudxfinaltaskdemo
 
 # create new resource group
 az group create --location westus --resource-group $RESOURCE_GROUP

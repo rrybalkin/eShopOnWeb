@@ -23,6 +23,7 @@ using Microsoft.OpenApi.Models;
 using MinimalApi.Endpoint.Configurations.Extensions;
 using MinimalApi.Endpoint.Extensions;
 using Microsoft.Extensions.Logging.ApplicationInsights;
+using System.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,12 +72,21 @@ builder.Services.AddAuthentication(config =>
 });
 
 const string CORS_POLICY = "CorsPolicy";
+var allowedOrigins = builder.Configuration.GetSection("CORS:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: CORS_POLICY,
         corsPolicyBuilder =>
         {
-            corsPolicyBuilder.WithOrigins(baseUrlConfig!.WebBase.Replace("host.docker.internal", "localhost").TrimEnd('/'));
+            if (allowedOrigins.IsNullOrEmpty())
+            {
+                corsPolicyBuilder.WithOrigins(baseUrlConfig!.WebBase.Replace("host.docker.internal", "localhost").TrimEnd('/'));
+            }
+            else
+            {
+                corsPolicyBuilder.WithOrigins(allowedOrigins);
+            }
+            
             corsPolicyBuilder.AllowAnyMethod();
             corsPolicyBuilder.AllowAnyHeader();
         });

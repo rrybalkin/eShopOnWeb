@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 
-public class OrderReservationService : IOrderReservationService
+public class OrderDeliverProcessorService : IOrderReservationService
 {
-    // of course this could be done in better way via environment variables
-    private readonly string orderServiceUrl = "https://cloudxeshopwebappv2.azurewebsites.net/api/OrderItemsReserver?code=zF7_eOqfqGOW0i5VY5d-j-GyviKE4r4s8Jlols_dx4WXAzFuMFzbxQ%3D%3D";
+    private readonly string orderServiceUrl = Environment.GetEnvironmentVariable("ORDER_ITEMS_DELIVERY_PROCESSOR_URL") ?? "Not set";
+    private readonly string orderServiceApiKey = Environment.GetEnvironmentVariable("ORDER_ITEMS_DELIVERY_PROCESSOR_API_KEY") ?? "Not set";
     private readonly HttpClient _httpClient;
 
-    public OrderReservationService()
+    public OrderDeliverProcessorService()
     {
         _httpClient = new HttpClient();
     }
@@ -26,7 +26,8 @@ public class OrderReservationService : IOrderReservationService
 
             using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(orderServiceUrl, content);
+            var fullUrl = orderServiceUrl + "?code=" + orderServiceApiKey;
+            var response = await _httpClient.PostAsync(fullUrl, content);
 
             // Throw an exception if the request was not successful
             response.EnsureSuccessStatusCode();

@@ -19,6 +19,7 @@ public class OrderService : IOrderService
     private readonly IRepository<Basket> _basketRepository;
     private readonly IRepository<CatalogItem> _itemRepository;
     private readonly IOrderReservationService _orderReservationService;
+    private readonly IOrderReservationService _orderDeliveryProcessorService;
 
     public OrderService(IRepository<Basket> basketRepository,
         IRepository<CatalogItem> itemRepository,
@@ -29,7 +30,8 @@ public class OrderService : IOrderService
         _uriComposer = uriComposer;
         _basketRepository = basketRepository;
         _itemRepository = itemRepository;
-        // _orderReservationService = new OrderReservationAsyncService();
+        _orderReservationService = new OrderReservationAsyncService();
+        _orderDeliveryProcessorService = new OrderDeliverProcessorService();
     }
 
     public async Task CreateOrderAsync(int basketId, Address shippingAddress)
@@ -55,7 +57,8 @@ public class OrderService : IOrderService
 
         await _orderRepository.AddAsync(order);
 
-        // disable when no Azure resources
-        // await _orderReservationService.ReserveOrder(order);
+        // disable when no Azure resources provided
+        await _orderReservationService.ReserveOrder(order);
+        await _orderDeliveryProcessorService.ReserveOrder(order);
     }
 }

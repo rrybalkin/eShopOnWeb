@@ -1,6 +1,7 @@
 ﻿/**
 ** This also required running `npm install @azure/cosmos` and `npm install uuidv4` inside the functions app
 **/
+
 const { CosmosClient } = require('@azure/cosmos');
 const { v4: uuidv4 } = require('uuid');
 
@@ -19,11 +20,13 @@ module.exports = async function (context, req) {
     if (req.body) {
         const item = req.body;
 
+        var orderId = item.orderId || item.Id;
         // Generate a random orderID if not provided
-        if (!item.orderId) {
-            item.orderId = uuidv4();
-            context.log(`Generated new orderId: ${item.orderId}`);
+        if (!orderId) {
+            orderId = uuidv4();
+            context.log(`Generated new orderId: ${orderId}`);
         }
+        item.orderId = orderId;
 
         try {
             const { resource: createdItem } = await container.items.create(item);
