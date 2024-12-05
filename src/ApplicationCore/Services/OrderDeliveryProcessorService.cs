@@ -9,16 +9,17 @@ using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 public class OrderDeliverProcessorService : IOrderReservationService
 {
     private readonly string orderServiceUrl = Environment.GetEnvironmentVariable("ORDER_ITEMS_DELIVERY_PROCESSOR_URL") ?? "Not set";
-    private readonly string orderServiceApiKey = Environment.GetEnvironmentVariable("ORDER_ITEMS_DELIVERY_PROCESSOR_API_KEY") ?? "Not set";
     private readonly HttpClient _httpClient;
 
     public OrderDeliverProcessorService()
     {
         _httpClient = new HttpClient();
+        Console.WriteLine("OrderDeliverProcessorService initialized with processor URL: " + orderServiceUrl);
     }
 
     public async Task ReserveOrder(Order order)
     {
+        Console.WriteLine($"Reserving order {order.Id} in the delivery system...");
         try
         {
             // Convert the object to JSON
@@ -26,8 +27,7 @@ public class OrderDeliverProcessorService : IOrderReservationService
 
             using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            var fullUrl = orderServiceUrl + "?code=" + orderServiceApiKey;
-            var response = await _httpClient.PostAsync(fullUrl, content);
+            var response = await _httpClient.PostAsync(orderServiceUrl, content);
 
             // Throw an exception if the request was not successful
             response.EnsureSuccessStatusCode();

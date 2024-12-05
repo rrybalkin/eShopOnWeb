@@ -18,6 +18,7 @@ using Microsoft.eShopWeb.Web;
 using Microsoft.eShopWeb.Web.Configuration;
 using Microsoft.eShopWeb.Web.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging.ApplicationInsights;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddConsole();
@@ -92,6 +93,14 @@ builder.Services.Configure<ServiceConfig>(config =>
     config.Services = new List<ServiceDescriptor>(builder.Services);
     config.Path = "/allservices";
 });
+
+// telemetry configuration
+builder.Logging.AddApplicationInsights(
+        configureTelemetryConfiguration: (config) =>
+            config.ConnectionString = builder.Configuration.GetConnectionString("APPLICATIONINSIGHTS_CONNECTION_STRING") ?? "NOT SET",
+            configureApplicationInsightsLoggerOptions: (options) => { }
+    );
+builder.Logging.AddFilter<ApplicationInsightsLoggerProvider>("", LogLevel.Trace);
 
 // blazor configuration
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);

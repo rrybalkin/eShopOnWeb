@@ -25,6 +25,7 @@
     <PackageReference Include="BuildBundlerMinifier" Condition="'$(Configuration)'=='Release'" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Microsoft.Extensions.Logging.ApplicationInsights" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
     <PackageReference Include="Microsoft.Web.LibraryManager.Build" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" />

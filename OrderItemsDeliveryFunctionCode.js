@@ -5,8 +5,8 @@
 const { CosmosClient } = require('@azure/cosmos');
 const { v4: uuidv4 } = require('uuid');
 
-const endpoint = process.env.COSMOS_DB_ENDPOINT;
-const key = process.env.COSMOS_DB_KEY;
+const endpoint = process.env.COSMOS_DB_ENDPOINT || 'NOT_SET';
+const key = process.env.COSMOS_DB_KEY || 'NOT_SET';
 const databaseId = "OrdersToDeliver";
 const containerId = "Items";
 
@@ -16,6 +16,8 @@ const container = database.container(containerId);
 
 module.exports = async function (context, req) {
     context.log('OrderItemsDelivery function is triggered via HTTP request.');
+    context.log('Cosmos DB URL: ' + endpoint);
+    context.log('Cosmos DB key: ' + key.substring(0, 5) + '...')
 
     if (req.body) {
         const item = req.body;

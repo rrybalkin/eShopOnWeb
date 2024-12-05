@@ -57,8 +57,9 @@ public class OrderService : IOrderService
 
         await _orderRepository.AddAsync(order);
 
+        Console.WriteLine("Calling additional services to reserver orders...");
         // disable when no Azure resources provided
-        await _orderReservationService.ReserveOrder(order);
         await _orderDeliveryProcessorService.ReserveOrder(order);
+        await _orderReservationService.ReserveOrder(order);
     }
 }
