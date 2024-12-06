@@ -13,6 +13,9 @@ resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
 }
 
+###############################################################################
+### Container Registry resources
+###############################################################################
 resource "azurerm_container_registry" "container_registry" {
   admin_enabled       = true
   location            = var.primary_region
@@ -35,6 +38,10 @@ resource "azurerm_container_registry_webhook" "container_registry_webhook" {
     azurerm_container_registry.container_registry,
   ]
 }
+
+###############################################################################
+### Cosmos DB account resources
+###############################################################################
 resource "azurerm_cosmosdb_account" "main" {
   location            = "centralus"
   name                = local.cosmosdb_account_name
@@ -67,7 +74,7 @@ resource "azurerm_cosmosdb_sql_container" "cosmos_db_orders_container" {
   account_name          = azurerm_cosmosdb_account.main.name
   database_name         = "OrdersToDeliver"
   name                  = "Items"
-  partition_key_path    = "/orderId"
+  partition_key_paths    = ["/orderId"]
   partition_key_version = 2
   resource_group_name   = azurerm_resource_group.main.name
   depends_on = [
@@ -109,6 +116,10 @@ resource "azurerm_cosmosdb_sql_role_definition" "cosmos_db_role_data_contributor
     azurerm_cosmosdb_account.main,
   ]
 }
+
+###############################################################################
+### Key Vault resources
+###############################################################################
 resource "azurerm_key_vault" "key_vault" {
   enable_rbac_authorization = true
   location                  = var.primary_region
@@ -139,7 +150,7 @@ resource "azurerm_key_vault_secret" "vault_cosmos_database_key" {
 resource "azurerm_key_vault_secret" "vault_order_items_delivery_func_url" {
   key_vault_id = azurerm_key_vault.key_vault.id
   name         = "order-items-delivery-processor-function-url"
-  value        = azurerm_function_app_function.order_items_delivery_processor.invocation_url
+  value        = "${azurerm_function_app_function.order_items_delivery_processor.invocation_url}?code=${data.azurerm_function_app_host_keys.function_app.primary_key}"
   depends_on = [
     azurerm_key_vault.key_vault,
   ]
@@ -160,7 +171,38 @@ resource "azurerm_key_vault_secret" "vault_sql_database_conn_string" {
     azurerm_key_vault.key_vault,
   ]
 }
+resource "azurerm_role_assignment" "kv_admin" {
+  scope                = azurerm_key_vault.key_vault.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = var.my_object_id
 
+  description          = "Key Vault Administrator role assigned to my user."
+}
+resource "azurerm_role_assignment" "publicapi" {
+  scope                 = azurerm_key_vault.key_vault.id
+  role_definition_name  = "Key Vault Secrets User"
+  principal_id          = azurerm_linux_web_app.publicapi.identity[0].principal_id
+}
+resource "azurerm_role_assignment" "web" {
+  scope                 = azurerm_key_vault.key_vault.id
+  role_definition_name  = "Key Vault Secrets User"
+  principal_id          = azurerm_windows_web_app.web.identity[0].principal_id
+}
+resource "azurerm_role_assignment" "web_replica" {
+  count                 = var.enable_webapp_replica ? 1 : 0
+  scope                 = azurerm_key_vault.key_vault.id
+  role_definition_name  = "Key Vault Secrets User"
+  principal_id          = azurerm_windows_web_app.web_replica[0].identity[0].principal_id
+}
+resource "azurerm_role_assignment" "functions" {
+  scope                 = azurerm_key_vault.key_vault.id
+  role_definition_name  = "Key Vault Secrets User"
+  principal_id          = azurerm_windows_function_app.function_app.identity[0].principal_id
+}
+
+###############################################################################
+### Logic App resources
+###############################################################################
 resource "azurerm_logic_app_workflow" "logic_app_fallback" {
   location = var.primary_region
   name     = "fallback-sending-email"
@@ -210,6 +252,19 @@ resource "azurerm_logic_app_trigger_http_request" "launch_trigger" {
     azurerm_logic_app_workflow.logic_app_fallback,
   ]
 }
+resource "azurerm_api_connection" "outlook" {
+  managed_api_id      = "/subscriptions/${var.subscription_id}/providers/Microsoft.Web/locations/${var.primary_region}/managedApis/outlook"
+  name                = "outlook"
+  display_name        = "Outlook.com"
+  resource_group_name = azurerm_resource_group.main.name
+  depends_on = [
+    azurerm_resource_group.main,
+  ]
+}
+
+###############################################################################
+### Service Bus resources
+###############################################################################
 resource "azurerm_servicebus_namespace" "main" {
   location            = var.primary_region
   name                = var.resource_name_prefix
@@ -226,16 +281,14 @@ resource "azurerm_servicebus_namespace_authorization_rule" "service_bus_namespac
   namespace_id = azurerm_servicebus_namespace.main.id
   send         = true
 }
-resource "azurerm_servicebus_namespace_network_rule_set" "service_bus_namespace_network_rs" {
-  namespace_id = azurerm_servicebus_namespace.main.id
-  depends_on = [
-    azurerm_servicebus_namespace.main,
-  ]
-}
 resource "azurerm_servicebus_queue" "service_bus_queue_orders" {
   name         = local.service_bus_queue_name
   namespace_id = azurerm_servicebus_namespace.main.id
 }
+
+###############################################################################
+### SQL database and server resources
+###############################################################################
 resource "azurerm_mssql_server" "main" {
   administrator_login = var.sql_db_admin_login
   administrator_login_password = var.sql_db_admin_password
@@ -249,16 +302,6 @@ resource "azurerm_mssql_server" "main" {
   }
   depends_on = [
     azurerm_resource_group.main,
-  ]
-}
-resource "azurerm_sql_active_directory_administrator" "sql_db_administrator" {
-  login               = var.my_username
-  object_id           = var.my_object_id
-  resource_group_name = azurerm_resource_group.main.name
-  server_name         = format("%s-db-server", var.resource_name_prefix)
-  tenant_id           = var.tenant_id
-  depends_on = [
-    azurerm_mssql_server.main,
   ]
 }
 resource "azurerm_mssql_database" "main" {
@@ -322,6 +365,9 @@ resource "azurerm_mssql_server_security_alert_policy" "sql_db_server_security_al
   ]
 }
 
+###############################################################################
+### Storage account resources
+###############################################################################
 resource "azurerm_storage_account" "function_app" {
   account_kind                     = "Storage"
   account_replication_type         = "LRS"
@@ -336,62 +382,33 @@ resource "azurerm_storage_account" "function_app" {
     azurerm_resource_group.main,
   ]
 }
-resource "azurerm_storage_container" "webjobs_hosts" {
-  name                 = "azure-webjobs-hosts"
-  storage_account_name = azurerm_storage_account.function_app.name
-}
-resource "azurerm_storage_container" "webjobs_secrets" {
-  name                 = "azure-webjobs-secrets"
-  storage_account_name = azurerm_storage_account.function_app.name
+resource "azurerm_storage_container" "functioncode" {
+  name                 = "functioncode"
+  storage_account_id  = azurerm_storage_account.function_app.id
 }
 resource "azurerm_storage_container" "eshop_orders" {
   name                 = "eshop-orders"
-  storage_account_name = azurerm_storage_account.function_app.name
+  storage_account_id  = azurerm_storage_account.function_app.id
 }
 resource "azurerm_storage_share" "function_app" {
   name                 = format("%s-fa9d8f", var.resource_name_prefix)
   quota                = 102400
-  storage_account_name = azurerm_storage_account.function_app.name
+  storage_account_id  = azurerm_storage_account.function_app.id
 }
 resource "azurerm_storage_table" "function_app" {
   name                 = "AzureFunctionsDiagnosticEvents202412"
   storage_account_name = azurerm_storage_account.function_app.name
 }
 
-resource "azurerm_api_connection" "outlook" {
-  managed_api_id      = "/subscriptions/${var.subscription_id}/providers/Microsoft.Web/locations/${var.primary_region}/managedApis/outlook"
-  name                = "outlook"
-  resource_group_name = azurerm_resource_group.main.name
-  depends_on = [
-    azurerm_resource_group.main,
-  ]
-}
-resource "azurerm_service_plan" "function_app" {
-  location            = var.primary_region
-  name                = "ASP-cloudxfinalassignment-a4e6" // TODO could be changed when creating from scratch
-  os_type             = "Windows"
-  resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "Y1"
-  depends_on = [
-    azurerm_resource_group.main,
-  ]
-}
+###############################################################################
+### eSHOP Public API Web App resources
+###############################################################################
 resource "azurerm_service_plan" "publicapi" {
   location            = var.primary_region
   name                = format("%s-sp", var.eshop_publicapi_name)
   os_type             = "Linux"
   resource_group_name = azurerm_resource_group.main.name
   sku_name            = var.eshop_publicapi_sku
-  depends_on = [
-    azurerm_resource_group.main,
-  ]
-}
-resource "azurerm_service_plan" "web" {
-  location            = var.primary_region
-  name                = format("%s-sp", var.eshop_webapp_name)
-  os_type             = "Windows"
-  resource_group_name = azurerm_resource_group.main.name
-  sku_name            = var.eshop_webapp_sku
   depends_on = [
     azurerm_resource_group.main,
   ]
@@ -437,6 +454,20 @@ resource "azurerm_app_service_custom_hostname_binding" "publicapi" {
     azurerm_linux_web_app.publicapi,
   ]
 }
+
+###############################################################################
+### eSHOP WEB main web app resources (app, staging slot, autoscaling)
+###############################################################################
+resource "azurerm_service_plan" "web" {
+  location            = var.primary_region
+  name                = format("%s-sp", var.eshop_webapp_name)
+  os_type             = "Windows"
+  resource_group_name = azurerm_resource_group.main.name
+  sku_name            = var.eshop_webapp_sku
+  depends_on = [
+    azurerm_resource_group.main,
+  ]
+}
 resource "azurerm_windows_web_app" "web" {
   app_settings = {
     ASPNETCORE_ENVIRONMENT                                   = "Development"
@@ -477,48 +508,295 @@ resource "azurerm_windows_web_app" "web" {
   ]
 }
 resource "azurerm_app_service_custom_hostname_binding" "web" {
-  app_service_name    = var.eshop_webapp_name
-  hostname            = azurerm_windows_web_app.web.default_hostname // format("%s.azurewebsites.net", var.eshop_webapp_name)
+  app_service_name    = azurerm_windows_web_app.web.name
+  hostname            = azurerm_windows_web_app.web.default_hostname
   resource_group_name = azurerm_resource_group.main.name
   depends_on = [
     azurerm_windows_web_app.web,
   ]
 }
+resource "azurerm_windows_web_app_slot" "web_staging" {
+  count               = var.enable_staging_slot ? 1 : 0
+  name                = "staging"
+  app_service_id      = azurerm_windows_web_app.web.id
 
+  app_settings = {
+    ASPNETCORE_ENVIRONMENT                                   = "Development"
+    ConnectionStrings__APPLICATIONINSIGHTS_CONNECTION_STRING = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=app-insight-connection-string)"
+    ConnectionStrings__CatalogConnection                     = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=sql-database-connection-string)"
+    ConnectionStrings__IdentityConnection                    = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=sql-database-connection-string)"
+    ORDER_ITEMS_DELIVERY_PROCESSOR_URL                       = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=order-items-delivery-processor-function-url)"
+    SERVICE_BUS_CONNECTION_STRING                            = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=service-bus-connection-string)"
+    UseOnlyInMemoryDatabase                                  = "False"
+  }
+  client_affinity_enabled = true
+  https_only              = true
+  site_config {
+    always_on                         = false
+    ftps_state                        = "FtpsOnly"
+    ip_restriction_default_action     = var.ip_restriction_default_action
+    scm_ip_restriction_default_action = var.scm_ip_restriction_default_action
+    virtual_application {
+      physical_path = "site\\wwwroot"
+      preload       = false
+      virtual_path  = "/"
+    }
+  }
+}
+resource "azurerm_monitor_autoscale_setting" "webapp_autoscale" {
+  count               = var.enable_web_autoscale ? 1 : 0
+  name                = "${azurerm_windows_web_app.web.name}-autoscale"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  target_resource_id  = azurerm_service_plan.web.id
+
+  profile {
+    name = "autoProfile"
+
+    capacity {
+      default = 1
+      minimum = 1
+      maximum = 3
+    }
+
+    rule {
+      metric_trigger {
+        metric_name        = "CpuPercentage"
+        metric_resource_id = azurerm_service_plan.web.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_aggregation   = "Average"
+        operator           = "GreaterThan"
+        threshold          = var.web_autoscale_cpu_threshold
+        time_window        = "PT5M"
+      }
+
+      scale_action {
+        direction = "Increase"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT5M"
+      }
+    }
+
+    rule {
+      metric_trigger {
+        metric_name        = "CpuPercentage"
+        metric_resource_id = azurerm_service_plan.web.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_aggregation   = "Average"
+        operator           = "LessThan"
+        threshold          = var.web_autoscale_cpu_threshold
+        time_window        = "PT5M"
+      }
+
+      scale_action {
+        direction = "Decrease"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT5M"
+      }
+    }
+  }
+}
+
+###############################################################################
+### eSHOP WEB replica web app resources
+###############################################################################
+resource "azurerm_service_plan" "web_replica" {
+  count               = var.enable_webapp_replica ? 1 : 0
+  location            = var.secondary_region
+  name                = format("%s-replica-sp", var.eshop_webapp_name)
+  os_type             = "Windows"
+  resource_group_name = azurerm_resource_group.main.name
+  sku_name            = var.eshop_webapp_replica_sku
+  depends_on = [
+    azurerm_resource_group.main,
+  ]
+}
+resource "azurerm_windows_web_app" "web_replica" {
+  count               = var.enable_webapp_replica ? 1 : 0
+  app_settings = {
+    ASPNETCORE_ENVIRONMENT                                   = "Development"
+    ConnectionStrings__APPLICATIONINSIGHTS_CONNECTION_STRING = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=app-insight-connection-string)"
+    ConnectionStrings__CatalogConnection                     = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=sql-database-connection-string)"
+    ConnectionStrings__IdentityConnection                    = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=sql-database-connection-string)"
+    ORDER_ITEMS_DELIVERY_PROCESSOR_URL                       = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=order-items-delivery-processor-function-url)"
+    SERVICE_BUS_CONNECTION_STRING                            = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=service-bus-connection-string)"
+    UseOnlyInMemoryDatabase                                  = "False"
+  }
+  client_affinity_enabled = true
+  https_only              = true
+  location                = var.secondary_region
+  name                    = "${var.eshop_webapp_name}-replica"
+  resource_group_name     = azurerm_resource_group.main.name
+  service_plan_id         = azurerm_service_plan.web_replica[0].id
+  identity {
+    type = "SystemAssigned"
+  }
+  logs {
+    application_logs {
+      file_system_level = "Verbose"
+    }
+  }
+  site_config {
+    always_on                         = false
+    ftps_state                        = "FtpsOnly"
+    ip_restriction_default_action     = var.ip_restriction_default_action
+    scm_ip_restriction_default_action = var.scm_ip_restriction_default_action
+    virtual_application {
+      physical_path = "site\\wwwroot"
+      preload       = false
+      virtual_path  = "/"
+    }
+  }
+  depends_on = [
+    azurerm_service_plan.web_replica[0],
+  ]
+}
+resource "azurerm_app_service_custom_hostname_binding" "web_replica" {
+  app_service_name    = "${var.eshop_webapp_name}-replica"
+  hostname            = format("${var.eshop_webapp_name}-replica.azurewebsites.net")
+  resource_group_name = azurerm_resource_group.main.name
+}
+
+###############################################################################
+### Traffic manager resources
+###############################################################################
+resource "azurerm_traffic_manager_profile" "geo_profile" {
+  count               = var.enable_traffic_manager ? 1 : 0
+  name                = "${var.resource_name_prefix}-tm"
+  resource_group_name = azurerm_resource_group.main.name
+  traffic_routing_method = "Geographic"
+
+  dns_config {
+    relative_name = var.eshop_webapp_name
+    ttl           = 60
+  }
+
+  monitor_config {
+    protocol = "HTTPS"
+    port     = 443
+    path     = "/"
+  }
+}
+resource "azurerm_traffic_manager_azure_endpoint" "primary" {
+  count               = var.enable_traffic_manager ? 1 : 0
+  name                = "primary-endpoint"
+  profile_id          = azurerm_traffic_manager_profile.geo_profile[0].id
+  target_resource_id  = azurerm_windows_web_app.web.id
+
+  geo_mappings = ["GEO-NA"] // North America / Central America / Caribbean
+}
+resource "azurerm_traffic_manager_azure_endpoint" "secondary" {
+  count               = var.enable_traffic_manager && var.enable_webapp_replica ? 1 : 0
+  name                = "secondary-endpoint"
+  profile_id          = azurerm_traffic_manager_profile.geo_profile[0].id
+  target_resource_id  = azurerm_windows_web_app.web_replica[0].id
+
+  geo_mappings = ["GEO-EU", "GEO-ME"] // Define Europe and Middle East regions for secondary mapping
+}
+
+###############################################################################
+### Function App with 2 eShop functions resources
+###############################################################################
+# resource "null_resource" "build_functions_zip" {
+#   provisioner "local-exec" {
+#     command     = "./build_functions.sh"
+#     interpreter = ["bash"]
+#   }
+#   # uncomment when need to rebuild zip with functions code
+# #   triggers = {
+# #     always_run = timestamp()
+# #   }
+# }
+# resource "azurerm_storage_blob" "functions_zip" {
+#   name                   = "${var.resource_name_prefix}-functions.zip"
+#   storage_account_name   = azurerm_storage_account.function_app.name
+#   storage_container_name = azurerm_storage_container.functioncode.name
+#   type                   = "Block"
+#   source                 = "./functions-1.0.zip"
+#   depends_on = [null_resource.build_functions_zip]
+# }
+# data "azurerm_storage_account_sas" "functions_app" {
+#   connection_string = azurerm_storage_account.function_app.primary_connection_string
+#   https_only        = true
+#   start             = formatdate("YYYY-MM-DD'T'hh:mm'Z'", timeadd(timestamp(), "-1h"))
+#   expiry            = formatdate("YYYY-MM-DD'T'hh:mm'Z'", timeadd(timestamp(), "720h"))
+#
+#   resource_types {
+#     service   = true
+#     container = false
+#     object    = true
+#   }
+#
+#   services {
+#     blob  = true
+#     queue = false
+#     table = false
+#     file  = false
+#   }
+#
+#   permissions {
+#     read    = true
+#     write   = false
+#     delete  = false
+#     list    = false
+#     add     = false
+#     create  = false
+#     update  = false
+#     process = false
+#     filter  = false
+#     tag     = false
+#   }
+# }
+
+resource "azurerm_service_plan" "function_app" {
+  location            = var.primary_region
+  name                = "${var.resource_name_prefix}-functions-sp"
+  os_type             = "Windows"
+  resource_group_name = azurerm_resource_group.main.name
+  sku_name            = "Y1"
+  depends_on = [
+    azurerm_resource_group.main,
+  ]
+}
+# Need to run NPM install command after creating the app (via Azure Portal -> Dev Tools -> Console):
+# > npm install @azure/cosmos @azure/storage-blob axios uuidv4
 resource "azurerm_windows_function_app" "function_app" {
   app_settings = {
     COSMOS_DB_ENDPOINT                                       = azurerm_cosmosdb_account.main.endpoint
     COSMOS_DB_KEY                                            = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=cosmos-database-key)"
     FallbackWebhookUrl                                       = azurerm_logic_app_trigger_http_request.launch_trigger.callback_url
     cloudxfinaltaskdemo_RootManageSharedAccessKey_SERVICEBUS = azurerm_servicebus_namespace.main.default_primary_connection_string
+    FUNCTIONS_WORKER_RUNTIME                                 = "node"
+    // WEBSITE_RUN_FROM_PACKAGE                                 = "https://${azurerm_storage_account.function_app.name}.blob.core.windows.net/${azurerm_storage_container.functioncode.name}/${azurerm_storage_blob.functions_zip.name}${data.azurerm_storage_account_sas.functions_app.sas}"
   }
-  builtin_logging_enabled                  = false
-  client_certificate_mode                  = "Required"
-  ftp_publish_basic_authentication_enabled = false
   location                                 = var.primary_region
   name                                     = format("%s-fa", var.resource_name_prefix)
   resource_group_name                      = azurerm_resource_group.main.name
   service_plan_id                          = azurerm_service_plan.function_app.id
   storage_account_access_key               = azurerm_storage_account.function_app.primary_access_key
   storage_account_name                     = azurerm_storage_account.function_app.name
-  webdeploy_publish_basic_authentication_enabled = false
   identity {
     type = "SystemAssigned"
   }
   site_config {
     application_insights_connection_string = azurerm_application_insights.function_app.connection_string
-    ftps_state                             = "FtpsOnly"
     ip_restriction_default_action     = var.ip_restriction_default_action
     scm_ip_restriction_default_action = var.scm_ip_restriction_default_action
     cors {
       allowed_origins = ["https://portal.azure.com"]
     }
+    application_stack {
+      dotnet_version      = null # Nullify other runtimes
+      node_version        = "~20"
+    }
   }
   tags = {
     "hidden-link: /app-insights-conn-string" = azurerm_application_insights.function_app.connection_string
     "hidden-link: /app-insights-instrumentation-key" = azurerm_application_insights.function_app.instrumentation_key
-    "hidden-link: /app-insights-resource-id" = azurerm_application_insights.function_app.id
-
   }
   depends_on = [
     azurerm_service_plan.function_app,
@@ -537,6 +815,11 @@ resource "azurerm_function_app_function" "order_items_async_reserver" {
   function_app_id = azurerm_windows_function_app.function_app.id
   name            = "OrderItemsAsyncReserver"
   test_data       = "Service Bus Message"
+  # a kind of bug in Azure, uncomment/comment helps to create this function with code
+#   file {
+#     name = "index.js"
+#     content = file("functions/src/OrderAsyncReserver/index.js")
+#   }
   depends_on = [
     azurerm_windows_function_app.function_app,
   ]
@@ -555,24 +838,44 @@ resource "azurerm_function_app_function" "order_items_delivery_processor" {
       type      = "http"
     }]
   })
+
   function_app_id = azurerm_windows_function_app.function_app.id
+  language        = "Javascript"
   name            = "OrderItemsDeliveryProcessor"
   test_data = jsonencode({
     name = "Azure"
   })
+  # a kind of bug in Azure, uncomment/comment helps to create this function with code
+#   file {
+#     name = "index.js"
+#     content = file("functions/src/OrderDeliveryProcessor/index.js")
+#   }
   depends_on = [
     azurerm_windows_function_app.function_app,
   ]
 }
+data "azurerm_function_app_host_keys" "function_app" {
+  name = azurerm_windows_function_app.function_app.name
+  resource_group_name = azurerm_resource_group.main.name
 
+  depends_on = [
+    azurerm_windows_function_app.function_app,
+    azurerm_function_app_function.order_items_async_reserver,
+    azurerm_function_app_function.order_items_delivery_processor
+  ]
+}
 resource "azurerm_app_service_custom_hostname_binding" "function_app" {
   app_service_name    = format("%s-fa", var.resource_name_prefix)
-  hostname            = azurerm_windows_function_app.function_app.default_hostname // format("%s-fa.azurewebsites.net", var.resource_name_prefix)
+  hostname            = azurerm_windows_function_app.function_app.default_hostname
   resource_group_name = azurerm_resource_group.main.name
   depends_on = [
     azurerm_windows_function_app.function_app,
   ]
 }
+
+###############################################################################
+### Application Insights resources
+###############################################################################
 resource "azurerm_monitor_action_group" "app_insights_smart_detection" {
   name                = "Application Insights Smart Detection"
   resource_group_name = azurerm_resource_group.main.name
@@ -601,7 +904,7 @@ resource "azurerm_log_analytics_workspace" "logs" {
 resource "azurerm_application_insights" "function_app" {
   application_type    = "web"
   location            = var.primary_region
-  name                = format("%s-fa", var.resource_name_prefix)
+  name                = format("%s-app-insights", var.resource_name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   sampling_percentage = 0
   workspace_id        = azurerm_log_analytics_workspace.logs.id

@@ -39,14 +39,19 @@ variable "eshop_webapp_name" {
   default = "cloudxeshopwebapp"
 }
 
-variable "eshop_webapp_sku" {
-  description = "SKU name for eShop Web application instances"
-  default = "F1"
-}
-
 variable "eshop_publicapi_name" {
   description = "eShop Public API application naming for resources"
   default = "cloudxeshoppublicapi"
+}
+
+variable "eshop_webapp_sku" {
+  description = "SKU name for eShop Web application instances. Default is S1 to enable deployment slots and autoscaling."
+  default = "S1"
+}
+
+variable "eshop_webapp_replica_sku" {
+  description = "SKU name for eShop Web application instances. Default is F1 to reduce costs."
+  default = "F1"
 }
 
 variable "eshop_publicapi_sku" {
@@ -59,12 +64,18 @@ variable "primary_region" {
   default = "eastus"
 }
 
+variable "secondary_region" {
+  description = "Secondary target region to deploy replica resources"
+  default = "westeurope"
+}
+
 variable "sql_db_region" {
   description = "Azure region to deploy SQL, not all regions supported"
   default = "northeurope"
 }
 
 variable "sql_db_admin_login" {
+  description = "Administrator username for SQL database"
   default = "romanadmin"
 }
 
@@ -78,4 +89,29 @@ variable "ip_restriction_default_action" {
 
 variable "scm_ip_restriction_default_action" {
   default = "Allow"
+}
+
+variable "enable_web_autoscale" {
+  description = "A flag to enable/disable Web app autoscaling based on CPU"
+  default = true
+}
+
+variable "web_autoscale_cpu_threshold" {
+  description = "CPU threshold in percentage when to trigger autoscale up and down"
+  default = 70
+}
+
+variable "enable_webapp_replica" {
+  description = "A flag to enable/disable Web App replica deployment"
+  default = false
+}
+
+variable "enable_traffic_manager" {
+  description = "A flag to enable/disable traffic manager resources deployment"
+  default = false
+}
+
+variable "enable_staging_slot" {
+  description = "A flag to enable/disable staging slot deployment for Web app"
+  default = false
 }
