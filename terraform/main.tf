@@ -188,6 +188,12 @@ resource "azurerm_role_assignment" "web" {
   role_definition_name  = "Key Vault Secrets User"
   principal_id          = azurerm_windows_web_app.web.identity[0].principal_id
 }
+resource "azurerm_role_assignment" "web_staging_slot" {
+  count                 = var.enable_staging_slot ? 1 : 0
+  scope                 = azurerm_key_vault.key_vault.id
+  role_definition_name  = "Key Vault Secrets User"
+  principal_id          = azurerm_windows_web_app_slot.web_staging[0].identity[0].principal_id
+}
 resource "azurerm_role_assignment" "web_replica" {
   count                 = var.enable_webapp_replica ? 1 : 0
   scope                 = azurerm_key_vault.key_vault.id
@@ -531,6 +537,9 @@ resource "azurerm_windows_web_app_slot" "web_staging" {
   }
   client_affinity_enabled = true
   https_only              = true
+  identity {
+    type = "SystemAssigned"
+  }
   site_config {
     always_on                         = false
     ftps_state                        = "FtpsOnly"

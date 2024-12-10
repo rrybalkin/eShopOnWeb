@@ -103,15 +103,15 @@ variable "web_autoscale_cpu_threshold" {
 
 variable "enable_webapp_replica" {
   description = "A flag to enable/disable Web App replica deployment"
-  default = false
+  default = true
 }
 
 variable "enable_traffic_manager" {
   description = "A flag to enable/disable traffic manager resources deployment"
-  default = false
+  default = true
 }
 
 variable "enable_staging_slot" {
   description = "A flag to enable/disable staging slot deployment for Web app"
-  default = false
+  default = true
 }
